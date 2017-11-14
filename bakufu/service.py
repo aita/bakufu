@@ -1,3 +1,4 @@
+import errno
 import os
 import signal
 import sys
@@ -78,7 +79,8 @@ class Service:
                 else:
                     break
             except OSError as e:
-                if e.errno == errno.EAGAIN:
+                if e.errno == errno.EINTR:
+                    # waitpid was interuppted
                     continue
                 elif e.errno == errno.ECHILD:
                     # the child has gone

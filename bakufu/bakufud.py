@@ -1,5 +1,4 @@
 import argparse
-import functools
 import logging
 import signal
 import sys
