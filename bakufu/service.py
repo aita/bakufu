@@ -57,25 +57,36 @@ class Service:
         for process in self.processes.values():
             process.send_signal(getattr(signal, self.stop_signal))
 
-        for pid in self.processes:
-            while True:
-                try:
-                    pid_, status = os.waitpid(pid, os.WNOHANG)
-                    if pid_ != pid:
-                        # the child process is still alive
-                        yield gen.sleep(0.001)
-                        continue
-                    else:
-                        break
-                except OSError as e:
-                    if e.errno == errno.EAGAIN:
-                        continue
-                    elif e.errno == errno.ECHILD:
-                        # the child has gone
-                        break
-                    else:
-                        raise e
-
-            logger.info("process[pid=%d] exited with code %d" % (pid, status))
-
+        yield self.reap_processes()
         logger.info("all %s processes stopped" % self.name)
+
+    @gen.coroutine
+    def reap_processes(self):
+        for pid in list(self.processes):
+            yield self.reap_process(pid)
+
+    @gen.coroutine
+    def reap_process(self, pid):
+        process = self.processes.pop(pid)
+        while True:
+            try:
+                pid_, _ = os.waitpid(pid, os.WNOHANG)
+                if pid_ != pid:
+                    # the child process is still alive
+                    yield gen.sleep(0.001)
+                    continue
+                else:
+                    break
+            except OSError as e:
+                if e.errno == errno.EAGAIN:
+                    continue
+                elif e.errno == errno.ECHILD:
+                    # the child has gone
+                    break
+                else:
+                    raise e
+
+        if process.poll() is None:
+            logger.warn("process[pid=%d] is still alive" % pid)
+            process.terminate()
+        logger.info("process[pid=%d] exited with code %d" % (pid, process.returncode))
