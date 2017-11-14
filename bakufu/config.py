@@ -56,7 +56,7 @@ def scan_barekey(s, start):
         c = s[pos]
         if c in DELIMITER:
             return Token.barekey, s[start:pos], pos
-        elif c.isalpha() or c.isdigit():
+        elif c.isalpha() or c.isdigit() or c == "_":
             pos += 1
         else:
             raise ParseError("Unexpected character '%c' while scanning key" % c)

@@ -3,8 +3,7 @@ from bakufu import __version__
 
 
 install_requires = [
-    'psutil',
-    'tornado>=4.0',
+    'psutil', 'tornado>=4.0'
 ]
 
 setup(
@@ -28,5 +27,5 @@ setup(
         'console_scripts':[
             'bakufud = bakufu.bakufud:main',
         ],
-    },    
+    },
 )
