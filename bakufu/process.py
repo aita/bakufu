@@ -12,12 +12,12 @@ from bakufu import logger
 
 
 class ProcessStatus(Enum):
-    stopped = "stopped"
-    starting = "starting"
-    running = "running"
-    stopping = "stopping"
-    backoff = "backoff"
-    fatal = "fatal"
+    STOPPED = "stopped"
+    STARTING = "starting"
+    RUNNING = "running"
+    STOPPING = "stopping"
+    BACKOFF = "backoff"
+    FATAL = "fatal"
 
 
 class Process:
@@ -27,7 +27,7 @@ class Process:
         self.stop_signal = stop_signal
         self.max_retry = max_retry
 
-        self.status = ProcessStatus.stopped
+        self.status = ProcessStatus.STOPPED
         self.worker = None
         self.backoff = 0
         self.laststart = 0
@@ -40,13 +40,13 @@ class Process:
         return self.worker.pid
 
     def spawn(self):
-        if self.status == ProcessStatus.running:
+        if self.status == ProcessStatus.RUNNING:
             return
-        if self.status == ProcessStatus.fatal:
+        if self.status == ProcessStatus.FATAL:
             return
 
-        if self.status != ProcessStatus.backoff:
-            self.status = ProcessStatus.starting
+        if self.status != ProcessStatus.BACKOFF:
+            self.status = ProcessStatus.STARTING
         try:
             self.worker = psutil.Popen(
                 self.command,
@@ -57,21 +57,21 @@ class Process:
                 stderr=sys.stderr,
                 close_fds=not self.use_sockets,
             )
-            self.status = ProcessStatus.running
+            self.status = ProcessStatus.RUNNING
             self.laststart = time.time()
         except OSError as e:
-            self.status = ProcessStatus.backoff
+            self.status = ProcessStatus.BACKOFF
             self.backoff += 1
 
         if self.backoff >= self.max_retry:
             # give up retrying
-            self.status = ProcessStatus.fatal
+            self.status = ProcessStatus.FATAL
 
     def kill(self):
-        if self.status == ProcessStatus.stopped:
+        if self.status == ProcessStatus.STOPPED:
             return
 
-        self.status = ProcessStatus.stopping
+        self.status = ProcessStatus.STOPPING
         if self.worker:
             self.worker.send_signal(getattr(signal, self.stop_signal))
 
@@ -100,7 +100,7 @@ class Process:
                     raise e
 
         # TODO: get exit code
-        self.status = ProcessStatus.stopped
+        self.status = ProcessStatus.STOPPED
         self.worker = None
         self.backoff = 0
         self.laststop = time.time()
@@ -115,7 +115,7 @@ class Process:
         return self.worker.is_running()
 
     def watch(self):
-        if self.status != ProcessStatus.running:
+        if self.status != ProcessStatus.RUNNING:
             return True
         if self.is_active():
             return True
@@ -130,9 +130,9 @@ class Process:
         delay = self.laststop - self.laststart
         if delay < 3:
             logger.error("process exited too quickly: pid=%s" % self.pid)
-            self.status = ProcessStatus.backoff
+            self.status = ProcessStatus.BACKOFF
             self.backoff += 1
         else:
-            self.status = ProcessStatus.stopped
+            self.status = ProcessStatus.STOPPED
         return False
 
