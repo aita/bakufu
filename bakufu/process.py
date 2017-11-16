@@ -40,15 +40,14 @@ class Process:
         return self.worker.pid
 
     def spawn(self):
-        if self.status == ProcessStatus.RUNNING:
-            return
-        if self.status == ProcessStatus.FATAL:
+        if self.status in (ProcessStatus.RUNNING, ProcessStatus.FATAL):
             return
 
         if self.status != ProcessStatus.BACKOFF:
             self.status = ProcessStatus.STARTING
 
         while self.backoff <= self.max_retry:
+            worker = None
             try:
                 worker = psutil.Popen(
                     self.command,
@@ -59,18 +58,17 @@ class Process:
                     stderr=sys.stderr,
                     close_fds=not self.use_sockets,
                 )
-                break
             except OSError as e:
                 self.status = ProcessStatus.BACKOFF
                 self.backoff += 1
-        else:
-            # give up retrying
-            self.status = ProcessStatus.FATAL
-            return
 
-        self.worker = worker
-        self.status = ProcessStatus.RUNNING
-        self.laststart = time.time()
+            if worker is not None:
+                self.worker = worker
+                self.status = ProcessStatus.RUNNING
+                self.laststart = time.time()
+                return
+        # give up retrying
+        self.status = ProcessStatus.FATAL
 
     def kill(self):
         if self.status == ProcessStatus.STOPPED:
@@ -139,5 +137,6 @@ class Process:
             self.backoff += 1
         else:
             self.status = ProcessStatus.STOPPED
+            self.backoff = 0
         return False
 
