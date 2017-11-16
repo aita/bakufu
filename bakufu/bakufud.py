@@ -3,7 +3,7 @@ import logging
 import signal
 import sys
 from tornado import gen
-from tornado.ioloop import IOLoop
+from tornado.ioloop import IOLoop, PeriodicCallback
 
 from bakufu import __version__, logger
 from bakufu import config
@@ -19,15 +19,16 @@ LOG_LEVELS = {
 }
 
 
-SIGNALS = ["SIG%s" % name for name in "HUP QUIT INT TERM CHLD".split()]
+SIGNALS = ["SIG%s" % name for name in "HUP QUIT INT TERM".split()]
 SIGNAMES = {getattr(signal, name): name for name in SIGNALS}
 
 
 class Bakufu:
-    def __init__(self, services, ioloop):
+    def __init__(self, services, ioloop, watchdog_interval=100):
         self.services = services
-
         self.ioloop = ioloop
+
+        self.watchdog = PeriodicCallback(self.watch, watchdog_interval)
         self.init_signal_handler()
 
     def init_signal_handler(self):
@@ -35,6 +36,7 @@ class Bakufu:
             signal.signal(getattr(signal, signame), self.signal)
 
     def start(self):
+        self.watchdog.start()
         for service in self.services:
             service.start()
         self.ioloop.start()
@@ -42,24 +44,24 @@ class Bakufu:
     def signal(self, signalnum, frame):
         self.ioloop.add_callback_from_signal(self.handle_signal, SIGNAMES[signalnum])
 
+    def watch(self):
+        for service in self.services:
+            service.watch_processes()
+
+    @gen.coroutine
     def handle_signal(self, signame):
         logger.warning("received %s" % signame)
         if signame in ("SIGTERM", "SIGINT", "SIGQUIT"):
-            self.quit()
+            yield self.quit()
         if signame == "SIGHUP":
-            self.reload()
-        if signame == "SIGCHLD":
-            pass
-
-    def quit(self):
-        self.ioloop.add_callback(self._quit)
+            yield self.reload()
 
     @gen.coroutine
-    def _quit(self):
-        for service in self.services:
-            yield service.stop()
+    def quit(self):
+        yield [service.stop() for service in self.services]
         self.ioloop.stop()
 
+    @gen.coroutine
     def reload(self):
         raise NotImplementedError
 
