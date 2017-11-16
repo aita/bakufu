@@ -45,11 +45,10 @@ class Process:
         if self.status == ProcessStatus.fatal:
             return
 
-        process = None
         if self.status != ProcessStatus.backoff:
             self.status = ProcessStatus.starting
         try:
-            process = psutil.Popen(
+            self.worker = psutil.Popen(
                 self.command,
                 shell=True,
                 # stdout=PIPE,
@@ -58,7 +57,6 @@ class Process:
                 stderr=sys.stderr,
                 close_fds=not self.use_sockets,
             )
-            self.worker = process
             self.status = ProcessStatus.running
             self.laststart = time.time()
         except OSError as e:
