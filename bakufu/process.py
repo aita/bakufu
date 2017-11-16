@@ -47,25 +47,30 @@ class Process:
 
         if self.status != ProcessStatus.BACKOFF:
             self.status = ProcessStatus.STARTING
-        try:
-            self.worker = psutil.Popen(
-                self.command,
-                shell=True,
-                # stdout=PIPE,
-                # stderr=PIPE,
-                stdout=sys.stdout,
-                stderr=sys.stderr,
-                close_fds=not self.use_sockets,
-            )
-            self.status = ProcessStatus.RUNNING
-            self.laststart = time.time()
-        except OSError as e:
-            self.status = ProcessStatus.BACKOFF
-            self.backoff += 1
 
-        if self.backoff >= self.max_retry:
+        while self.backoff <= self.max_retry:
+            try:
+                worker = psutil.Popen(
+                    self.command,
+                    shell=True,
+                    # stdout=PIPE,
+                    # stderr=PIPE,
+                    stdout=sys.stdout,
+                    stderr=sys.stderr,
+                    close_fds=not self.use_sockets,
+                )
+                break
+            except OSError as e:
+                self.status = ProcessStatus.BACKOFF
+                self.backoff += 1
+        else:
             # give up retrying
             self.status = ProcessStatus.FATAL
+            return
+
+        self.worker = worker
+        self.status = ProcessStatus.RUNNING
+        self.laststart = time.time()
 
     def kill(self):
         if self.status == ProcessStatus.STOPPED:
