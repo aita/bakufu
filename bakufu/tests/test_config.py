@@ -8,10 +8,10 @@ class TestConfigScanner(unittest.TestCase):
         return config.scan(text, 0)
 
     def test_number(self):
-        self.assertEqual(self._callFUT("+0;"), (Token.number, 0, 2))
-        self.assertEqual(self._callFUT("-123;"), (Token.number, -123, 4))
-        self.assertEqual(self._callFUT(".5e4;"), (Token.number, 5000.0, 4))
-        self.assertEqual(self._callFUT("10E-2;"), (Token.number, 0.1, 5))
+        self.assertEqual(self._callFUT("+0;"), (Token.NUMBER, 0, 2))
+        self.assertEqual(self._callFUT("-123;"), (Token.NUMBER, -123, 4))
+        self.assertEqual(self._callFUT(".5e4;"), (Token.NUMBER, 5000.0, 4))
+        self.assertEqual(self._callFUT("10E-2;"), (Token.NUMBER, 0.1, 5))
 
 
 class TestConfigLoad(unittest.TestCase):

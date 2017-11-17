@@ -1,6 +1,6 @@
 import io
 import re
-from enum import IntEnum, auto
+from enum import IntEnum
 
 from bakufu import logger
 
@@ -35,27 +35,28 @@ class ParseError(Exception):
 
 
 class Token(IntEnum):
-    barekey = auto()
-    string = auto()
-    number = auto()
-    equal = auto()
-    semicolon = auto()
-    left_bracket = auto()
-    right_bracket = auto()
-    eof = auto()
+    ID = 1
+    STRING = 2
+    NUMBER = 3
+    EQUAL = 4
+    SEMICOLON = 5
+    COMMA = 6
+    LEFT_BRACKET = 7
+    RIGHT_BRACKET = 8
+    EOF = 9
 
 
-def scan_barekey(s, start):
+def scan_id(s, start):
     pos = start
-    firstchar = s[pos]
-    if not firstchar.isalpha() and firstchar != "_":
-        raise ParseError("Unexpected character '%c' while scanning key" % firstchar)
+    c = s[pos]
+    if not c.isalpha() and c != "_":
+        raise ParseError("Unexpected character '%c' while scanning key" % c)
 
     pos += 1
     while True:
         c = s[pos]
         if c in DELIMITER:
-            return Token.barekey, s[start:pos], pos
+            return Token.ID, s[start:pos], pos
         elif c.isalpha() or c.isdigit() or c == "_":
             pos += 1
         else:
@@ -94,7 +95,7 @@ def scan_number(s, start):
         value = int(value)
     except ValueError:
         value = float(value)
-    return Token.number, value, pos
+    return Token.NUMBER, value, pos
 
 
 def scan_string(s, pos):
@@ -104,7 +105,7 @@ def scan_string(s, pos):
     while True:
         c = s[pos]
         if c == quote:
-            return Token.string, buf.getvalue(), pos+1
+            return Token.STRING, buf.getvalue(), pos+1
         elif c in "\r\n":
             raise ParseError("EOL while scanning string")
         elif c == "\\":
@@ -132,29 +133,29 @@ def skip_comment(s, p):
 def scan(s, pos):
     while True:
         if len(s) <= pos:
-            return Token.eof, "", len(s)
+            return Token.EOF, "", len(s)
         if s[pos] not in WS:
             break
         pos += 1
 
     c = s[pos]
     if c == "#":
-        return scanone(s, skip_comment(s, pos))
+        return scan(s, skip_comment(s, pos))
     elif c == "=":
-        return Token.equal, c, pos+1
+        return Token.EQUAL, c, pos+1
     elif c == ";":
-        return Token.semicolon, c, pos+1
+        return Token.SEMICOLON, c, pos+1
     elif c == "{":
-        return Token.left_bracket, c, pos+1
+        return Token.LEFT_BRACKET, c, pos+1
     elif c == "}":
-        return Token.right_bracket, c, pos+1
+        return Token.RIGHT_BRACKET, c, pos+1
     try:
         if c.isdigit() or c in "+-":
             return scan_number(s, pos)
         if c == "." and s[pos+1].isdigit():
             return scan_number(s, pos)
         if c.isalpha() or c == "_":
-            return scan_barekey(s, pos)
+            return scan_id(s, pos)
         if c in "'\"":
             return scan_string(s, pos)
     except IndexError:
@@ -214,39 +215,39 @@ def parse(scanner, depth=0):
     data = {}
     while True:
         tok, _ = scanner.peek()
-        if tok == Token.eof:
+        if tok == Token.EOF:
             if depth > 0:
                 raise ParseError("Unclosed block")
             return data
-        if tok == Token.right_bracket:
+        if tok == Token.RIGHT_BRACKET:
             if depth < 1:
                 raise ParseError("Unexpected token %s" % tok)
             scanner.junk()
             return data
 
-        key = expect(scanner, Token.barekey, Token.string)
+        key = expect(scanner, Token.ID, Token.STRING)
         tok, _ = scanner.peek()
-        if tok == Token.equal:
+        if tok == Token.EQUAL:
             scanner.junk()
             tok, value = scanner.next()
-            if tok == Token.barekey:
+            if tok == Token.ID:
                 if value in RESERVED:
                     value = RESERVED[value]
                 _update(data, key, value)
-            elif tok in (Token.number, Token.string):
+            elif tok in (Token.NUMBER, Token.STRING):
                 _update(data, key, value)
             else:
                 raise ParseError("Unexpected token %s" % tok)
-            expect(scanner, Token.semicolon)
+            expect(scanner, Token.SEMICOLON)
             continue
 
         keys = [key]
         while True:
             tok, subkey = scanner.next()
-            if tok in (Token.barekey, Token.string):
+            if tok in (Token.ID, Token.STRING):
                 keys.append(subkey)
                 continue
-            elif tok == Token.left_bracket:
+            elif tok == Token.LEFT_BRACKET:
                 value = parse(scanner, depth+1)
                 _update_section(data, keys, value)
                 break
