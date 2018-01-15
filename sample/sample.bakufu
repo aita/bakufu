@@ -1,5 +1,0 @@
-service echo {
-    command='python echo.py';
-    num_processes=1;
-    stop_signal=SIGTERM;
-}

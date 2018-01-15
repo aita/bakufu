@@ -1,0 +1,5 @@
+service:
+  echo:
+    command: python sample/echo.py
+    num_processes: 1
+    stop_signal: SIGTERM

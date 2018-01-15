@@ -2,11 +2,11 @@ import argparse
 import logging
 import signal
 import sys
+import yaml
 from tornado import gen
 from tornado.ioloop import IOLoop, PeriodicCallback
 
 from bakufu import __version__, logger
-from bakufu import config
 from bakufu.service import Service
 
 
@@ -68,7 +68,7 @@ class Bakufu:
     @classmethod
     def load_from_config(cls, filename, ioloop):
         with open(filename) as fp:
-            cfg = config.load(fp)
+            cfg = yaml.load(fp)
 
         services = []
         for name, opts in cfg['service'].items():
